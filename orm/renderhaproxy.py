@@ -24,17 +24,37 @@ def make_custom_internal_healthcheck(healthcheck_config):
     return config
 
 
+def get_origin_object_list_from_origin_def(origin_def):
+    origins = []
+    if isinstance(origin_def, str):
+        origins += [{'origin': origin_def}]
+    elif isinstance(origin_def, dict):
+        if not 'origin' in origin_def and 'server' in origin_def:
+            origin_def['origin'] = origin_def['server']
+            origin_def.pop('server')
+        origins += [origin_def]
+    elif isinstance(origin_def, list):
+        for origin_def_item in origin_def:
+            origins += get_origin_object_list_from_origin_def(origin_def_item)
+    else:
+        raise ORMInternalRenderException('ERROR: unhandled backend origin type ({}): {}'
+                                         .format(type(origin_def), origin_def))
+    if not origins:
+        raise ORMInternalRenderException('ERROR: cannot parse backend origin definition ({}): {}'
+                                         .format(type(origin_def), origin_def))
+    return origins
+
+
 class RenderHAProxy(RenderOutput):
     def make_backend_action(self, backend_config, rule_id):
         origins = []
-        if "origin" in backend_config:
-            origins.append(backend_config["origin"])
-        elif "servers" in backend_config:
-            origins += backend_config["servers"]
-        else:
-            raise ORMInternalRenderException(
-                "ERROR: unhandled backend type: " + str(backend_config.keys())
-            )
+        for origin_def_key in ['origin', 'origins', 'server', 'servers']:
+            if origin_def_key in backend_config:
+                origins += get_origin_object_list_from_origin_def(backend_config[origin_def_key])
+        if not origins:
+            raise ORMInternalRenderException('ERROR: unhandled backend type: {}'
+                                             .format(backend_config.keys()))
+
         if origins:
             self.backend_acls.append(
                 "    use_backend " + rule_id + " "
@@ -43,16 +63,12 @@ class RenderHAProxy(RenderOutput):
             self.backends.append("")
             self.backends.append("backend " + rule_id)
         for origin in origins:
-            origin_instance = origin
-            if isinstance(origin, str):
-                origin_instance = {"server": origin}
-
             scheme, hostname, port = parser.extract_from_origin(
-                origin_instance["server"]
+                origin["origin"]
             )
             server = (
                 "    server "
-                + parser.normalize(origin_instance["server"])
+                + parser.normalize(origin["origin"])
                 + " "
                 + hostname
                 + ":"
@@ -67,12 +83,12 @@ class RenderHAProxy(RenderOutput):
                 raise ORMInternalRenderException(
                     "ERROR: unhandled origin " "scheme: " + scheme
                 )
-            if origin_instance.get("max_connections", False):
-                server += " maxconn {}".format(origin_instance["max_connections"])
+            if origin.get("max_connections", False):
+                server += " maxconn {}".format(origin["max_connections"])
 
-            if origin_instance.get("max_queued_connections", False):
+            if origin.get("max_queued_connections", False):
                 server += " maxqueue {}".format(
-                    origin_instance["max_queued_connections"]
+                    origin["max_queued_connections"]
                 )
 
             self.backends.append(server)

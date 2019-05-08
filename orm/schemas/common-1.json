@@ -183,40 +183,58 @@
         "properties": {
           "servers": {
             "type": "array",
-            "items": {
-              "oneOf": [{
-                "type": "string",
-                "format": "origin"
-              }, {
-                "type": "object",
-                "properties": {
-                  "server": {
-                    "type": "string",
-                    "format": "origin"
-                  },
-                  "max_connections": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "max_queued_connections": {
-                    "type": "integer",
-                    "minimum": 0
-                  }
-                },
-                "required": ["server"],
-                "additionalProperties": false
-              }]
-            }
+            "items": {"$ref": "#/definitions/origin_object"}
           }
         },
         "additionalProperties": false
       }, {
         "properties": {
+          "origins": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/origin_object"}
+          }
+        },
+        "additionalProperties": false
+      }, {
+        "properties": {
+          "server": {"$ref": "#/definitions/origin_object"}
+        },
+        "additionalProperties": false
+      }, {
+        "properties": {
+          "origin": {"$ref": "#/definitions/origin_object"}
+        },
+        "additionalProperties": false
+      }]
+    },
+    "origin_object": {
+      "oneOf": [{
+        "type": "string",
+        "format": "origin"
+      }, {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string",
+            "format": "origin"
+          },
           "origin": {
             "type": "string",
             "format": "origin"
+          },
+          "max_connections": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_queued_connections": {
+            "type": "integer",
+            "minimum": 0
           }
         },
+        "oneOf": [
+          {"required": ["server"]},
+          {"required": ["origin"]}
+        ],
         "additionalProperties": false
       }]
     },

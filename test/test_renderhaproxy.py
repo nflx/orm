@@ -15,18 +15,86 @@ class RenderHAProxyTest(unittest.TestCase):
     def setUp(self):
         self.render = RenderHAProxy(rule_docs={})
 
-    def test_make_backend_action(self):
+    def test_make_backend_action_origin_string(self):
         backend_config = {'origin': 'internet.example.com'}
         self.render.make_backend_action(backend_config, 'rule_id')
         self.assertIsStringList(self.render.backends, emptyOk=False)
         self.assertIsStringList(self.render.backend_acls, emptyOk=False)
-        backend_config = {'servers': ['internet.example.com', 'space.example.com']}
+
+    def test_make_backend_action_servers(self):
+        backend_config = {'servers': ['space.example.com',
+                                      {'server':'internet.example.com',
+                                       'max_connections':10},
+                                      {'server':'cats.example.com',
+                                       'max_connections':10,
+                                       'max_queued_connections':4}]}
         self.render.make_backend_action(backend_config, 'rule_id')
         self.assertIsStringList(self.render.backends, emptyOk=False)
         self.assertIsStringList(self.render.backend_acls, emptyOk=False)
+
+    def test_make_backend_action_origins(self):
+        backend_config = {'origins': ['space.example.com',
+                                      {'origin':'internet.example.com'},
+                                      {'server':'space.example.com',
+                                       'max_connections':10},
+                                      {'origin':'cats.example.com',
+                                       'max_connections':10,
+                                       'max_queued_connections':4}]}
+        self.assertIsStringList(self.render.backends, emptyOk=False)
+        self.assertIsStringList(self.render.backend_acls, emptyOk=False)
+
+    def test_make_backend_action_server_string(self):
+        backend_config = {'server': 'space.svt.se'}
+        self.render.make_backend_action(backend_config, 'rule_id')
+        self.assertIsStringList(self.render.backends, emptyOk=False)
+        self.assertIsStringList(self.render.backend_acls, emptyOk=False)
+
+    def test_make_backend_action_origins_string_invalid(self):
+        backend_config = {'origins': 'space.svt.se'}
+        self.render.make_backend_action(backend_config, 'rule_id')
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_servers_string_invalid(self):
+        backend_config = {'servers': 'space.svt.se'}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_invalid_string_invalid(self):
+        backend_config = {'invalid': 'space.svt.se'}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_server_server_object_invalid(self):
+        backend_config = {'server': {'server':'space.svt.se',
+                                     'max_connections':10}}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_servers_origin_object_invalid(self):
+        backend_config = {'servers': ['space.svt.se',
+                                      {'origin':'internet.svt.se'}]}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_servers_server_set_host_header_invalid(self):
+        backend_config = {'servers': ['space.svt.se',
+                                      {'server':'internet.svt.se',
+                                       'set_host_header':'internet.svt.se'}]}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_origins_server_invalid(self):
+        backend_config = {'origins': {'server':'space.svt.se'}}
+        with self.assertRaises(ORMInternalRenderException):
+            self.render.make_backend_action(backend_config, 'rule_id')
+
+    def test_make_backend_action_unknown(self):
         backend_config_unknown = {'unknown': 'backend config'}
         with self.assertRaises(ORMInternalRenderException):
             self.render.make_backend_action(backend_config_unknown, 'rule_id')
+
+    def test_make_backend_action_unknown_scheme(self):
         backend_config_unknown_scheme = {'origin': 'derp://example.com'}
         with self.assertRaises(ORMInternalRenderException):
             self.render.make_backend_action(backend_config_unknown_scheme,
