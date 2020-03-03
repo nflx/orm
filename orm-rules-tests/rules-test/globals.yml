@@ -7,5 +7,6 @@ crypto:
     - /etc/ssl/orm.pem
 
 haproxy:
-  max_server_timeout: 25000
+  #max_server_timeout: 25000
+  max_server_timeout: 0
   timeout_server_default: 15000
